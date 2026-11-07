@@ -1,0 +1,4 @@
+ikpy[plot]
+numpy
+matplotlib
+pyserial
