@@ -2,7 +2,7 @@
 import sys, matplotlib.pyplot as plt
 from ikpy.utils import plot as P
 from arm import ARM, solve
-t = [float(v) for v in sys.argv[1:4]] if len(sys.argv) == 4 else [0.131, 0.076, 0.131]
+t = [float(v) for v in sys.argv[1:4]] if len(sys.argv) == 4 else [0.005, 0.170, 0.115]
 deg, err, full = solve(t)
 print("Target (m):", t)
 print("Joint angles (deg):", [round(float(d), 1) for d in deg])

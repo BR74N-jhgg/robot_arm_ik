@@ -4,7 +4,18 @@ from arm import solve, to_servo
 import config as C
 sim = "--sim" in sys.argv
 if not sim:
-    import serial; ser = serial.Serial(C.SERIAL_PORT, C.BAUD); time.sleep(2)
+    import serial
+    try:
+        ser = serial.Serial(C.SERIAL_PORT, C.BAUD)
+    except serial.SerialException as exc:
+        print(
+            f"Could not open {C.SERIAL_PORT}: {exc}\n"
+            "Close Arduino IDE Serial Monitor or any other app using this port, "
+            "check the selected COM port in Device Manager/config.py, then try again.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from exc
+    time.sleep(2)
 guess = None
 while True:
     try:
