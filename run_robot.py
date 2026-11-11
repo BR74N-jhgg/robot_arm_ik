@@ -1,40 +1,48 @@
-"""Type targets, arm moves. Usage: python run_robot.py   (add --sim to test without hardware)"""
-import sys, time
-from arm import solve, to_servo
-import config as C
-sim = "--sim" in sys.argv
-if not sim:
-    import serial
-    try:
-        ser = serial.Serial(C.SERIAL_PORT, C.BAUD)
-    except serial.SerialException as exc:
-        print(
-            f"Could not open {C.SERIAL_PORT}: {exc}\n"
-            "Close Arduino IDE Serial Monitor or any other app using this port, "
-            "check the selected COM port in Device Manager/config.py, then try again.",
-            file=sys.stderr,
-        )
-        raise SystemExit(1) from exc
-    time.sleep(2)
-guess = None
-try:
-    while True:
-        try:
-            s = input("Target x y z in metres (or q): ").strip()
-        except EOFError:
-            print("\nNo more input; exiting.")
-            break
-        except KeyboardInterrupt:
-            print("\nInterrupted; exiting.")
-            break
-        if s == "q": break
-        try: t = [float(v) for v in s.split()]; assert len(t) == 3
-        except Exception: print("Enter 3 numbers, e.g. 0.131 0.076 0.131"); continue
-        deg, err, guess = solve(t, guess)
-        if err > 5: print(f"Unreachable (error {err:.1f} mm) - not moving"); continue
-        cmd = ",".join(map(str, to_servo(deg))) + "\n"
-        print("Angles:", [round(float(d), 1) for d in deg], "-> servo cmd:", cmd.strip())
-        if not sim: ser.write(cmd.encode())
-finally:
-    if not sim:
-        ser.close()
+import serial
+import time
+import numpy as np
+from config import arm_chain
+
+# Hardware Constants for 28BYJ-48 (Half-step mode)
+TOTAL_STEPS_PER_REV = 4096.0
+
+esp32 = serial.Serial('/dev/cu.usbserial-10', 115200, timeout=1)
+time.sleep(2) # Wait for ESP32 to reboot
+
+def rad_to_steps(radians):
+    """Converts IK radians to absolute stepper motor steps."""
+    revolutions = radians / (2 * np.pi)
+    return int(revolutions * TOTAL_STEPS_PER_REV)
+
+def move_to_target(x, y, z):
+    target_position = [x, y, z]
+    
+    # 1. Calculate Inverse Kinematics
+    ik_angles = arm_chain.inverse_kinematics(target_position)
+    
+    # 2. Check if the target is actually reachable (Fix 3)
+    predicted_position = arm_chain.forward_kinematics(ik_angles)[:3, 3]
+    error = np.linalg.norm(predicted_position - target_position)
+    if error > 0.005:  # 5 mm tolerance
+        print(f"ERR: Target {target_position} unreachable. Error: {error:.4f}m")
+        return
+    
+    # 3. Convert to Motor Steps
+    base_steps = rad_to_steps(ik_angles[1])
+    shoulder_steps = rad_to_steps(ik_angles[2])
+    elbow_steps = rad_to_steps(ik_angles[3])
+    
+    # 4. Format and Send the Serial Command
+    command = f"{base_steps},{shoulder_steps},{elbow_steps}\n"
+    esp32.write(command.encode('utf-8'))
+    
+    response = esp32.readline().decode('utf-8').strip()
+    print(f"Sent: {command.strip()} | ESP32 Reply: {response}")
+
+if __name__ == "__main__":
+    print("Moving to position 1...")
+    move_to_target(0.131, 0.076, 0.131)
+    time.sleep(3)
+    
+    print("Moving to position 2...")
+    move_to_target(0.10, 0.10, 0.10)
