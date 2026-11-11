@@ -17,17 +17,24 @@ if not sim:
         raise SystemExit(1) from exc
     time.sleep(2)
 guess = None
-while True:
-    try:
-        s = input("Target x y z in metres (or q): ").strip()
-    except EOFError:
-        print("\nNo more input; exiting.")
-        break
-    if s == "q": break
-    try: t = [float(v) for v in s.split()]; assert len(t) == 3
-    except Exception: print("Enter 3 numbers, e.g. 0.131 0.076 0.131"); continue
-    deg, err, guess = solve(t, guess)
-    if err > 5: print(f"Unreachable (error {err:.1f} mm) - not moving"); continue
-    cmd = ",".join(map(str, to_servo(deg))) + "\n"
-    print("Angles:", [round(float(d), 1) for d in deg], "-> servo cmd:", cmd.strip())
-    if not sim: ser.write(cmd.encode())
+try:
+    while True:
+        try:
+            s = input("Target x y z in metres (or q): ").strip()
+        except EOFError:
+            print("\nNo more input; exiting.")
+            break
+        except KeyboardInterrupt:
+            print("\nInterrupted; exiting.")
+            break
+        if s == "q": break
+        try: t = [float(v) for v in s.split()]; assert len(t) == 3
+        except Exception: print("Enter 3 numbers, e.g. 0.131 0.076 0.131"); continue
+        deg, err, guess = solve(t, guess)
+        if err > 5: print(f"Unreachable (error {err:.1f} mm) - not moving"); continue
+        cmd = ",".join(map(str, to_servo(deg))) + "\n"
+        print("Angles:", [round(float(d), 1) for d in deg], "-> servo cmd:", cmd.strip())
+        if not sim: ser.write(cmd.encode())
+finally:
+    if not sim:
+        ser.close()
