@@ -11,7 +11,7 @@ void setup() {
   Serial.begin(115200);
   
   arm.setup();
-  claw.setup(5); // Assuming gripper is on GPIO 5
+  claw.setup(23); // Assuming gripper is on GPIO 5
 }
 
 void loop() {
